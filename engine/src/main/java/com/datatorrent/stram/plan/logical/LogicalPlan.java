@@ -27,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.validation.*;
 import javax.validation.constraints.NotNull;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
 import org.apache.hadoop.util.ReflectionUtils;
@@ -1073,6 +1075,103 @@ public class LogicalPlan implements Serializable, DAG
     rootOperators.add(decl); // will be removed when a sink is added to an input port for this operator
     operators.put(name, decl);
     return operator;
+  }
+
+  public final class ModuleMeta implements DAG.ModuleMeta, Serializable
+  {
+    private final LinkedHashMap<InputPortMeta, StreamMeta> inputStreams = new LinkedHashMap<InputPortMeta, StreamMeta>();
+    private final LinkedHashMap<OutputPortMeta, StreamMeta> outputStreams = new LinkedHashMap<OutputPortMeta, StreamMeta>();
+    private final Attribute.AttributeMap attributes;
+    @SuppressWarnings("unused")
+    private final int id;
+    @NotNull
+    private final String name;
+    private transient Integer nindex; // for cycle detection
+    private transient Integer lowlink; // for cycle detection
+    private transient Module module;
+
+    public ModuleMeta(String name, Module module)
+    {
+      this(name, module, new DefaultAttributeMap());
+    }
+
+    public ModuleMeta(String name, Module module, DefaultAttributeMap attributeMap)
+    {
+      LOG.debug("Initializing {} as {}", name, module.getClass().getName());
+      this.name = name;
+      this.module = module;
+      this.id = logicalOperatorSequencer.decrementAndGet();
+      this.attributes = attributeMap;
+    }
+
+    @Override public String getName()
+    {
+      return name;
+    }
+
+    @Override public Module getModule()
+    {
+      return module;
+    }
+
+    @Override public DAG.InputPortMeta getMeta(InputPort<?> port)
+    {
+      return null;
+    }
+
+    @Override public DAG.OutputPortMeta getMeta(OutputPort<?> port)
+    {
+      return null;
+    }
+
+    @Override public Attribute.AttributeMap getAttributes()
+    {
+      return null;
+    }
+
+    @Override public <T> T getValue(Attribute<T> key)
+    {
+      return null;
+    }
+
+    @Override public void setCounters(Object counters)
+    {
+
+    }
+
+    @Override public void sendMetrics(Collection<String> metricNames)
+    {
+
+    }
+  }
+
+  public transient Map<String, Module> modules = Maps.newHashMap();
+  List<ModuleMeta> rootModules = Lists.newArrayList();
+
+  @Override public <T extends Module> T addModule(String name, T module)
+  {
+    if (modules.containsKey(name)) {
+      if (modules.get(name) == (Module)module) {
+        return module;
+      }
+      throw new IllegalArgumentException("duplicate module is: " + modules.get(name));
+    }
+    ModuleMeta meta = new ModuleMeta(name, module);
+    rootModules.add(meta);
+    modules.put(name, module);
+    return module;
+  }
+
+  @Override public <T extends Module> T addModule(String name, Class<T> clazz)
+  {
+    T instance;
+    try {
+      instance = clazz.newInstance();
+    } catch (Exception ex) {
+      throw new IllegalArgumentException(ex);
+    }
+    addModule(name, instance);
+    return instance;
   }
 
   public void removeOperator(Operator operator)

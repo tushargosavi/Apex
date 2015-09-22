@@ -258,4 +258,22 @@ public interface DAG extends DAGContext, Serializable
    */
   public abstract OperatorMeta getMeta(Operator operator);
 
+  public abstract <T extends Module> T addModule(String name, T module);
+
+  public abstract <T extends Module> T addModule(String name, Class<T> klazz);
+
+  /**
+   * Operator meta object.
+   */
+  public interface ModuleMeta extends Serializable, Context
+  {
+    public String getName();
+
+    public Module getModule();
+
+    public InputPortMeta getMeta(Operator.InputPort<?> port);
+
+    public OutputPortMeta getMeta(Operator.OutputPort<?> port);
+  }
+
 }

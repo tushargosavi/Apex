@@ -94,6 +94,10 @@ public class LogicalPlanConfiguration {
   public static final String OPERATOR_CLASSNAME = "classname";
   public static final String OPERATOR_TEMPLATE = "template";
 
+  public static final String MODULE_PREFIX = StreamingApplication.DT_PREFIX + "module.";
+  public static final String MODULE_CLASSNAME = "classname";
+  public static final String MODULE_TEMPLATE = "template";
+
   public static final String TEMPLATE_idRegExp = "matchIdRegExp";
   public static final String TEMPLATE_appNameRegExp = "matchAppNameRegExp";
   public static final String TEMPLATE_classNameRegExp = "matchClassNameRegExp";
@@ -120,7 +124,7 @@ public class LogicalPlanConfiguration {
    */
   protected enum StramElement {
     APPLICATION("application"), GATEWAY("gateway"), TEMPLATE("template"), OPERATOR("operator"),STREAM("stream"), PORT("port"), INPUT_PORT("inputport"),OUTPUT_PORT("outputport"),
-    ATTR("attr"), PROP("prop"),CLASS("class"),PATH("path"),UNIFIER("unifier");
+    ATTR("attr"), PROP("prop"),CLASS("class"),PATH("path"),UNIFIER("unifier"), MODULE("module");
     private final String value;
 
     /**
@@ -1480,6 +1484,7 @@ public class LogicalPlanConfiguration {
     elementMaps.put(StramElement.INPUT_PORT, PortConf.class);
     elementMaps.put(StramElement.OUTPUT_PORT, PortConf.class);
     elementMaps.put(StramElement.UNIFIER, OperatorConf.class);
+    elementMaps.put(StramElement.MODULE, OperatorConf.class);
   }
 
   /**
@@ -2011,32 +2016,11 @@ public class LogicalPlanConfiguration {
       return;
     }
 
-    Map<String, OperatorConf> operators = appConf.getChildren(StramElement.OPERATOR);
+    Map<OperatorConf, Operator> nodeMap = new HashMap<OperatorConf, Operator>();
+    Map<OperatorConf, Module> moduleMap = new HashMap<OperatorConf, Module>();
 
-    Map<OperatorConf, Operator> nodeMap = Maps.newHashMapWithExpectedSize(operators.size());
-    // add all operators first
-    for (Map.Entry<String, OperatorConf> nodeConfEntry : operators.entrySet()) {
-      OperatorConf nodeConf = nodeConfEntry.getValue();
-      if (!WILDCARD.equals(nodeConf.id)) {
-        Class<? extends Operator> nodeClass = StramUtils.classForName(nodeConf.getClassNameReqd(), Operator.class);
-        String optJson = nodeConf.getProperties().get(nodeClass.getName());
-        Operator nd = null;
-        try {
-          if (optJson != null) {
-            // if there is a special key which is the class name, it means the operator is serialized in json format
-            ObjectMapper mapper = ObjectMapperFactory.getOperatorValueDeserializer();
-            nd = mapper.readValue("{\"" + nodeClass.getName() + "\":" + optJson + "}", nodeClass);
-            dag.addOperator(nodeConfEntry.getKey(), nd);
-          } else {
-            nd = dag.addOperator(nodeConfEntry.getKey(), nodeClass);
-          }
-          setOperatorProperties(nd, nodeConf.getProperties());
-        } catch (IOException e) {
-          throw new IllegalArgumentException("Error setting operator properties " + e.getMessage(), e);
-        }
-        nodeMap.put(nodeConf, nd);
-      }
-    }
+    populateOperators(appConf, dag, nodeMap);
+    populateModules(appConf, dag, moduleMap);
 
     Map<String, StreamConf> streams = appConf.getChildren(StramElement.STREAM);
 
@@ -2089,6 +2073,62 @@ public class LogicalPlanConfiguration {
 
   }
 
+  private void populateModules(AppConf appConf, LogicalPlan dag, Map<OperatorConf, Module> moduleMap)
+  {
+    Map<String, OperatorConf> modules = appConf.getChildren(StramElement.MODULE);
+
+    // add all operators first
+    for (Map.Entry<String, OperatorConf> nodeConfEntry : modules.entrySet()) {
+      OperatorConf nodeConf = nodeConfEntry.getValue();
+      if (!WILDCARD.equals(nodeConf.id)) {
+        Class<? extends Module> nodeClass = StramUtils.classForName(nodeConf.getClassNameReqd(), Module.class);
+        String optJson = nodeConf.getProperties().get(nodeClass.getName());
+        Module nd = null;
+        try {
+          if (optJson != null) {
+            // if there is a special key which is the class name, it means the operator is serialized in json format
+            ObjectMapper mapper = ObjectMapperFactory.getOperatorValueDeserializer();
+            nd = mapper.readValue("{\"" + nodeClass.getName() + "\":" + optJson + "}", nodeClass);
+            dag.addModule(nodeConfEntry.getKey(), nd);
+          } else {
+            nd = dag.addModule(nodeConfEntry.getKey(), nodeClass);
+          }
+          setObjectProperties(nd, nodeConf.getProperties());
+        } catch (Exception e) {
+          throw new IllegalArgumentException("Error setting operator properties " + e.getMessage(), e);
+        }
+        moduleMap.put(nodeConf, nd);
+      }
+    }
+  }
+
+  private void populateOperators(AppConf appConf, LogicalPlan dag, Map<OperatorConf, Operator> nodeMap) {
+    Map<String, OperatorConf> operators = appConf.getChildren(StramElement.OPERATOR);
+
+    // add all operators first
+    for (Map.Entry<String, OperatorConf> nodeConfEntry : operators.entrySet()) {
+      OperatorConf nodeConf = nodeConfEntry.getValue();
+      if (!WILDCARD.equals(nodeConf.id)) {
+        Class<? extends Operator> nodeClass = StramUtils.classForName(nodeConf.getClassNameReqd(), Operator.class);
+        String optJson = nodeConf.getProperties().get(nodeClass.getName());
+        Operator nd = null;
+        try {
+          if (optJson != null) {
+            // if there is a special key which is the class name, it means the operator is serialized in json format
+            ObjectMapper mapper = ObjectMapperFactory.getOperatorValueDeserializer();
+            nd = mapper.readValue("{\"" + nodeClass.getName() + "\":" + optJson + "}", nodeClass);
+            dag.addOperator(nodeConfEntry.getKey(), nd);
+          } else {
+            nd = dag.addOperator(nodeConfEntry.getKey(), nodeClass);
+          }
+          setOperatorProperties(nd, nodeConf.getProperties());
+        } catch (Exception e) {
+          throw new IllegalArgumentException("Error setting operator properties " + e.getMessage(), e);
+        }
+        nodeMap.put(nodeConf, nd);
+      }
+    }
+  }
   /**
    * Populate the logical plan from the streaming application definition and configuration.
    * Configuration is resolved based on application alias, if any.
@@ -2231,6 +2271,27 @@ public class LogicalPlanConfiguration {
       return operator;
     }
     catch (IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalArgumentException("Error setting operator properties", e);
+    }
+  }
+
+  /**
+   * Generic helper function to inject properties on the object.
+   * @param obj
+   * @param properties
+   * @param <T>
+   * @return
+   */
+  public static <T> T setObjectProperties(T obj, Map<String, String> properties)
+  {
+    try {
+      BeanUtils.populate(obj, properties);
+      return obj;
+    }
+    catch (IllegalAccessException e) {
+      throw new IllegalArgumentException("Error setting operator properties", e);
+    }
+    catch (InvocationTargetException e) {
       throw new IllegalArgumentException("Error setting operator properties", e);
     }
   }
