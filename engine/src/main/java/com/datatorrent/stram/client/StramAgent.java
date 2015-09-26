@@ -277,6 +277,7 @@ public class StramAgent extends FSAgent
         for (Map.Entry<String, Object> entry : stramUriSpec.getQueryParams().entries()) {
           ub = ub.queryParam(entry.getKey(), entry.getValue());
         }
+        System.out.println(ub.build());
         return webServiceClient.process(webServiceClient.getClient().resource(ub.build()).accept(MediaType.APPLICATION_JSON), clazz, handler);
       } catch (ClientHandlerException ex) {
         if (retries-- > 0) {

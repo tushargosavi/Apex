@@ -579,6 +579,7 @@ public class StramClient
       }
 
       LOG.info("Completed setting up app master command " + command.toString());
+      System.out.println("app master command: " + command.toString());
       List<String> commands = new ArrayList<String>();
       commands.add(command.toString());
       amContainer.setCommands(commands);

@@ -1564,6 +1564,7 @@ public class LogicalPlanConfiguration {
 
   public LogicalPlanConfiguration(Configuration conf)
   {
+    System.out.println("LogicalPlanConfiguration called " + conf);
     this.conf = conf;
     this.addFromConfiguration(conf);
   }
@@ -1742,6 +1743,7 @@ public class LogicalPlanConfiguration {
    * @param conf The current {@link Conf} to add properties to.
    */
   private void parseStramPropertyTokens(String[] keys, int index, String propertyName, String propertyValue, Conf conf) {
+    System.out.println("parserStramPropertyTokens " + propertyName);
     if (index < keys.length) {
       String key = keys[index];
       StramElement element = getElement(key, conf);

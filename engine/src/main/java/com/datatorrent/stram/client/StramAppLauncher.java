@@ -397,6 +397,8 @@ public class StramAppLauncher
             @Override
             public LogicalPlan createApp(LogicalPlanConfiguration conf)
             {
+              System.out.println("create application called");
+              //Thread.dumpStack();
               // load class from current context class loader
               Class<? extends StreamingApplication> c = StramUtils.classForName(className, StreamingApplication.class);
               StreamingApplication app = StramUtils.newInstance(c);

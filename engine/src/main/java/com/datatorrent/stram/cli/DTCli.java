@@ -1361,6 +1361,9 @@ public class DTCli
 
   private void processLine(String line, final ConsoleReader reader, boolean expandMacroAlias)
   {
+    System.out.println("process line called");
+
+
     try {
       // clear interrupt flag
       Thread.interrupted();
@@ -1806,6 +1809,13 @@ public class DTCli
     @SuppressWarnings("SleepWhileInLoop")
     public void execute(String[] args, ConsoleReader reader) throws Exception
     {
+      System.out.println("Inside launch command execute");
+      LOG.info("Inside launch command execute");
+//      try {
+//        throw new RuntimeException("for stack trace");
+//      } catch (RuntimeException ex) {
+//        ex.printStackTrace();
+//      }
       String[] newArgs = new String[args.length - 1];
       System.arraycopy(args, 1, newArgs, 0, args.length - 1);
       LaunchCommandLineInfo commandLineInfo = getLaunchCommandLineInfo(newArgs);
@@ -1828,6 +1838,10 @@ public class DTCli
         String configFile = cp == null ? commandLineInfo.configFile : null;
         try {
           config = StramAppLauncher.getOverriddenConfig(StramClientUtils.addDTSiteResources(new Configuration()), configFile, commandLineInfo.overrideProperties);
+//          System.out.println("Configuration during launch is " + config);
+//          for(Entry<String, String> entry : config) {
+//            System.out.println("key " + entry.getKey() + "  value " + entry.getValue());
+//          }
           if (commandLineInfo.libjars != null) {
             commandLineInfo.libjars = expandCommaSeparatedFiles(commandLineInfo.libjars);
             if (commandLineInfo.libjars != null) {
@@ -1894,6 +1908,7 @@ public class DTCli
           }
           submitApp = getStramAppLauncher(fileName, config, commandLineInfo.ignorePom);
         }
+        System.out.println("1. application factory " + appFactory + " submit app  " + submitApp);
         submitApp.loadDependencies();
         
         if (commandLineInfo.origAppId != null) {
@@ -1926,7 +1941,9 @@ public class DTCli
             }
           }
         }
-        
+
+        System.out.println("2. application factory " + appFactory + " submit app  " + submitApp);
+
         if (appFactory == null && matchString != null) {
           // attempt to interpret argument as property file - do we still need it?
           try {
@@ -1942,7 +1959,9 @@ public class DTCli
             // ignore
           }
         }
-        
+
+        System.out.println("3. application factory " + appFactory + " submit app  " + submitApp);
+
         if (appFactory == null) {
           List<AppFactory> matchingAppFactories = getMatchingAppFactories(submitApp, matchString, commandLineInfo.exactMatch);
           if (matchingAppFactories == null || matchingAppFactories.isEmpty()) {
@@ -2013,7 +2032,9 @@ public class DTCli
           }
           
         }
-        
+
+        System.out.println("4. application factory " + appFactory + " submit app  " + submitApp);
+
         if (appFactory != null) {
           if (!commandLineInfo.localMode) {
 
@@ -2637,6 +2658,7 @@ public class DTCli
         uriSpec = uriSpec.queryParam("propertyName", args[2]);
       }
       try {
+        System.out.println("url:" + uriSpec);
         JSONObject response = getResource(uriSpec, currentApp);
         printJson(response);
       } catch (Exception e) {
@@ -3444,7 +3466,10 @@ public class DTCli
 
   private void launchAppPackage(AppPackage ap, ConfigPackage cp, LaunchCommandLineInfo commandLineInfo, ConsoleReader reader) throws Exception
   {
-    new LaunchCommand().execute(getLaunchAppPackageArgs(ap, cp, commandLineInfo, reader), reader);
+    String[] ret = getLaunchAppPackageArgs(ap, cp, commandLineInfo, reader);
+    for(String s : ret)
+      System.out.println(s);
+    new LaunchCommand().execute(ret, reader);
   }
 
   String[] getLaunchAppPackageArgs(AppPackage ap, ConfigPackage cp, LaunchCommandLineInfo commandLineInfo, ConsoleReader reader) throws Exception
