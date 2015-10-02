@@ -1065,7 +1065,7 @@ public class LogicalPlan implements Serializable, DAG
   public <T extends Operator> T addOperator(String name, T operator)
   {
     if (operators.containsKey(name)) {
-      if (operators.get(name) == (Object)operator) {
+      if (operators.get(name).operator == operator) {
         return operator;
       }
       throw new IllegalArgumentException("duplicate operator id: " + operators.get(name));
@@ -1145,20 +1145,18 @@ public class LogicalPlan implements Serializable, DAG
     }
   }
 
-  public transient Map<String, Module> modules = Maps.newHashMap();
-  List<ModuleMeta> rootModules = Lists.newArrayList();
+  public transient Map<String, ModuleMeta> modules = Maps.newHashMap();
 
   @Override public <T extends Module> T addModule(String name, T module)
   {
     if (modules.containsKey(name)) {
-      if (modules.get(name) == (Module)module) {
+      if (modules.get(name).module == module) {
         return module;
       }
       throw new IllegalArgumentException("duplicate module is: " + modules.get(name));
     }
     ModuleMeta meta = new ModuleMeta(name, module);
-    rootModules.add(meta);
-    modules.put(name, module);
+    modules.put(name, meta);
     return module;
   }
 
@@ -1312,6 +1310,10 @@ public class LogicalPlan implements Serializable, DAG
   public Collection<OperatorMeta> getAllOperators()
   {
     return Collections.unmodifiableCollection(this.operators.values());
+  }
+
+  public Collection<ModuleMeta> getAllModules() {
+    return Collections.unmodifiableCollection(this.modules.values());
   }
 
   public Collection<StreamMeta> getAllStreams()
