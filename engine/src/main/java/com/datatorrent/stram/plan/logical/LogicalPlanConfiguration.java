@@ -174,7 +174,8 @@ public class LogicalPlanConfiguration {
     OPERATOR(StramElement.OPERATOR, ConfElement.APPLICATION, null, OperatorContext.class),
     STREAM(StramElement.STREAM, ConfElement.APPLICATION, null, null),
     PORT(StramElement.PORT, ConfElement.OPERATOR, EnumSet.of(StramElement.INPUT_PORT, StramElement.OUTPUT_PORT), PortContext.class),
-    UNIFIER(StramElement.UNIFIER, ConfElement.PORT, null, null);
+    UNIFIER(StramElement.UNIFIER, ConfElement.PORT, null, null),
+    MODULE(StramElement.MODULE, ConfElement.APPLICATION, null, OperatorContext.class);
 
     protected static final Map<StramElement, ConfElement> STRAM_ELEMENT_TO_CONF_ELEMENT = Maps.newHashMap();
     protected static final Map<Class<? extends Context>, ConfElement> CONTEXT_TO_CONF_ELEMENT = Maps.newHashMap();
@@ -1133,7 +1134,7 @@ public class LogicalPlanConfiguration {
     private final Map<String, String> appAliases = Maps.newHashMap();
 
     private static final StramElement[] CHILD_ELEMENTS = new StramElement[]{StramElement.APPLICATION, StramElement.GATEWAY, StramElement.TEMPLATE, StramElement.OPERATOR,
-            StramElement.PORT, StramElement.INPUT_PORT, StramElement.OUTPUT_PORT, StramElement.STREAM, StramElement.TEMPLATE, StramElement.ATTR, StramElement.UNIFIER};
+            StramElement.PORT, StramElement.INPUT_PORT, StramElement.OUTPUT_PORT, StramElement.STREAM, StramElement.TEMPLATE, StramElement.ATTR, StramElement.UNIFIER, StramElement.MODULE};
 
     StramConf() {
     }
@@ -1158,7 +1159,7 @@ public class LogicalPlanConfiguration {
 
     private static final StramElement[] CHILD_ELEMENTS = new StramElement[]{StramElement.GATEWAY, StramElement.OPERATOR, StramElement.PORT,
             StramElement.INPUT_PORT, StramElement.OUTPUT_PORT, StramElement.STREAM, StramElement.ATTR, StramElement.CLASS, StramElement.PATH,
-            StramElement.PROP, StramElement.UNIFIER};
+            StramElement.PROP, StramElement.UNIFIER, StramElement.MODULE};
 
     @SuppressWarnings("unused")
     AppConf() {
@@ -1448,6 +1449,13 @@ public class LogicalPlanConfiguration {
 
   }
 
+  private static class ModuleConf extends OperatorConf {
+    @Override public ConfElement getConfElement()
+    {
+      return ConfElement.MODULE;
+    }
+  }
+
   /**
    * This holds the configuration information for a port on an operator in an Apex application.
    */
@@ -1721,11 +1729,11 @@ public class LogicalPlanConfiguration {
    */
   public LogicalPlanConfiguration addFromProperties(Properties props, Configuration conf)
   {
-    System.out.println("Add from properties called ");
     if (conf != null) {
       StramClientUtils.evalProperties(props, conf);
     }
     for (final String propertyName : props.stringPropertyNames()) {
+      System.out.println("property name : " + propertyName);
       String propertyValue = props.getProperty(propertyName);
       this.properties.setProperty(propertyName, propertyValue);
       if (propertyName.startsWith(StreamingApplication.DT_PREFIX)) {
@@ -1754,7 +1762,7 @@ public class LogicalPlanConfiguration {
       }
       if ((element == StramElement.APPLICATION) || (element == StramElement.OPERATOR) || (element == StramElement.STREAM)
               || (element == StramElement.PORT) || (element == StramElement.INPUT_PORT) || (element == StramElement.OUTPUT_PORT)
-              || (element == StramElement.TEMPLATE)) {
+              || (element == StramElement.TEMPLATE) || (element == StramElement.MODULE)) {
         parseAppElement(index, keys, element, conf, propertyName, propertyValue);
       } else if (element == StramElement.GATEWAY) {
         parseGatewayElement(element, conf, keys, index, propertyName, propertyValue);
@@ -1780,6 +1788,7 @@ public class LogicalPlanConfiguration {
    */
   private void parseAppElement(int index, String[] keys, StramElement element, Conf conf1, String propertyName, String propertyValue)
   {
+    System.out.println("parse app element " + propertyName);
     if ((index + 1) < keys.length) {
       String name = keys[index+1];
       Conf elConf = addConf(element, name, conf1);
@@ -2199,7 +2208,7 @@ public class LogicalPlanConfiguration {
    * @param opConfs
    * @param appName
    */
-  private Map<String, String> getProperties(PropertyArgs pa, List<OperatorConf> opConfs, String appName)
+  public Map<String, String> getProperties(PropertyArgs pa, List<OperatorConf> opConfs, String appName)
   {
     Map<String, String> opProps = Maps.newHashMap();
     Map<String, TemplateConf> templates = stramConf.getChildren(StramElement.TEMPLATE);
@@ -2239,7 +2248,7 @@ public class LogicalPlanConfiguration {
     return refTemplates;
   }
 
-  static class PropertyArgs {
+  public static class PropertyArgs {
     String name;
     String className;
 
@@ -2288,7 +2297,7 @@ public class LogicalPlanConfiguration {
    */
   public static Operator setOperatorProperties(Operator operator, Map<String, String> properties)
   {
-    Thread.dumpStack();
+    //Thread.dumpStack();
     try {
       // populate custom opProps
       BeanUtils.populate(operator, properties);
@@ -2350,6 +2359,15 @@ public class LogicalPlanConfiguration {
       List<OperatorConf> opConfs = getMatchingChildConf(appConfs, ow.getName(), StramElement.OPERATOR);
       Map<String, String> opProps = getProperties(getPropertyArgs(ow), opConfs, applicationName);
       setOperatorProperties(ow.getOperator(), opProps);
+    }
+  }
+
+  public void setModuleProperties(LogicalPlan dag, String applicationName) {
+    List<AppConf> appConfs = stramConf.getMatchingChildConf(applicationName, StramElement.APPLICATION);
+    for (ModuleMeta ow : dag.getAllModules()) {
+      List<OperatorConf> opConfs = getMatchingChildConf(appConfs, ow.getName(), StramElement.MODULE);
+      Map<String, String> opProps = getProperties(getPropertyArgs(ow), opConfs, applicationName);
+      setObjectProperties(ow.getModule(), opProps);
     }
   }
 
