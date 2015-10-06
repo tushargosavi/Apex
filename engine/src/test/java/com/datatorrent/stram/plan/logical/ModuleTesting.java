@@ -28,7 +28,7 @@ public class ModuleTesting
     conf.set(StreamingApplication.DT_PREFIX + "module.o2.prop.mapProperty(key2.dot)", "key2dotVal");
 
     LogicalPlan dag = new LogicalPlan();
-    GenericModule o1 = dag.addModule("o1", new GenericModule());
+    TestModules.GenericModule o1 = dag.addModule("o1", new TestModules.GenericModule());
     //LogicalPlanTest.ValidationTestOperator o2 = dag.addOperator("o2", new LogicalPlanTest.ValidationTestOperator());
     ValidationTestModule o2 = dag.addModule("o2", new ValidationTestModule());
 
@@ -126,4 +126,21 @@ public class ModuleTesting
     }
   }
 
+  static class AppWithModule implements StreamingApplication {
+    @Override public void populateDAG(DAG dag, Configuration conf)
+    {
+      dag.addModule("m1", new TestModules.PiModule());
+    }
+  }
+
+  @Test
+  public void moduleAppTest() {
+    Configuration conf = new Configuration(false);
+    conf.set(StreamingApplication.DT_PREFIX + "module.m1.prop.size", "1000");
+    LogicalPlanConfiguration pb = new LogicalPlanConfiguration(conf);
+
+    LogicalPlan dag = new LogicalPlan();
+    pb.prepareDAG(dag, new AppWithModule(), "TestApp");
+    System.out.println("This is test");
+  }
 }
